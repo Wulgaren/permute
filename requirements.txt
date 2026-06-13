@@ -1,0 +1,2 @@
+# No external dependencies — stdlib only.
+# Requires ffmpeg and ffprobe on PATH.
