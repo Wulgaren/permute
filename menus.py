@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from discover import MediaType
+from presets import VIDEO_COMPRESS_PRESETS, VideoCompressPreset
 
 
 def _prompt_choice(options: list[str], label: str) -> int | None:
@@ -46,6 +47,7 @@ def prompt_audio_action(files: list) -> str | None:
 def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
     options = [
         "Best MP4 (H.265)",
+        "Compress video",
         "Extract audio (best M4A)",
         "Speed up",
         "Split by duration",
@@ -60,10 +62,18 @@ def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
     if not choice:
         return None
 
-    actions = ["h265_mp4", "extract_audio", "speed_up", "split"]
+    actions = ["h265_mp4", "compress", "extract_audio", "speed_up", "split"]
     if can_combine:
         actions.append("combine")
     return actions[choice - 1]
+
+
+def prompt_compress_preset() -> VideoCompressPreset | None:
+    choice = _prompt_choice(
+        [p.name for p in VIDEO_COMPRESS_PRESETS],
+        "Compression preset",
+    )
+    return VIDEO_COMPRESS_PRESETS[choice - 1] if choice else None
 
 
 def prompt_speed() -> float | None:

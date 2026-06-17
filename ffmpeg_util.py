@@ -36,6 +36,14 @@ def _available_encoders() -> set[str]:
     return _ENCODER_CACHE
 
 
+def video_scale_filter(max_width: int, max_height: int) -> str:
+    """Downscale to fit within max dimensions; keep aspect ratio and even pixel sizes."""
+    return (
+        f"scale={max_width}:{max_height}:force_original_aspect_ratio=decrease,"
+        "scale=trunc(iw/2)*2:trunc(ih/2)*2"
+    )
+
+
 def h265_video_args(*, crf: str = "22", preset: str | None = "slow") -> list[str]:
     """Return ffmpeg video-encoding args, preferring HEVC with fallbacks."""
     encoders = _available_encoders()

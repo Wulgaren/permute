@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import glob
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from cue import CueSheet, parse_cue
@@ -15,7 +16,26 @@ from ffmpeg_util import (
     run_ffmpeg,
     split_output_pattern,
     stream_copy_with_cover_args,
+    video_scale_filter,
 )
+
+
+@dataclass(frozen=True)
+class VideoCompressPreset:
+    name: str
+    max_width: int
+    max_height: int
+    crf: str
+    encoder_preset: str | None
+    suffix: str
+
+
+# HandBrake-inspired presets: H.265, downscale-to-fit, AAC 160k audio.
+VIDEO_COMPRESS_PRESETS: list[VideoCompressPreset] = [
+    VideoCompressPreset("Fast 1080p", 1920, 1080, "24", "fast", "1080p"),
+    VideoCompressPreset("Fast 720p", 1280, 720, "24", "fast", "720p"),
+    VideoCompressPreset("Fast 480p", 854, 480, "26", "fast", "480p"),
+]
 
 
 def to_m4a_vbr(path: Path) -> Path:
@@ -80,6 +100,25 @@ def to_h265_mp4(path: Path) -> Path:
         "-movflags", "+faststart",
         str(out),
     ])
+    return out
+
+
+def compress_video(path: Path, preset: VideoCompressPreset) -> Path:
+    out = conversion_output(path, target_ext=".mp4", suffix_if_same=preset.suffix)
+    args = [
+        "-i", str(path),
+        "-vf", video_scale_filter(preset.max_width, preset.max_height),
+    ]
+    if has_audio_stream(path):
+        args.extend(["-c:a", "aac", "-b:a", "160k"])
+    else:
+        args.append("-an")
+    args.extend([
+        *h265_video_args(crf=preset.crf, preset=preset.encoder_preset),
+        "-movflags", "+faststart",
+        str(out),
+    ])
+    run_ffmpeg(args)
     return out
 
 

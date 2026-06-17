@@ -7,7 +7,14 @@ from pathlib import Path
 
 from discover import FileGroups, MediaType, collect_files
 from ffmpeg_util import check_dependencies
-from menus import prompt_fades, prompt_for_type, prompt_minutes, prompt_speed, prompt_time
+from menus import (
+    prompt_compress_preset,
+    prompt_fades,
+    prompt_for_type,
+    prompt_minutes,
+    prompt_speed,
+    prompt_time,
+)
 import presets
 
 
@@ -99,6 +106,21 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
                 print(f"\nSplitting: {path.name}")
                 parts = presets.split_by_duration(path, minutes)
                 print(f"  Created {len(parts)} part(s)")
+                ok += 1
+            except Exception as exc:
+                print(f"  Failed: {exc}")
+                fail += 1
+        return ok, fail
+
+    if action == "compress":
+        preset = prompt_compress_preset()
+        if preset is None:
+            return 0, 0
+        for path in files:
+            try:
+                print(f"\nCompressing ({preset.name}): {path.name}")
+                out = presets.compress_video(path, preset)
+                print(f"  -> {out.name}")
                 ok += 1
             except Exception as exc:
                 print(f"  Failed: {exc}")
