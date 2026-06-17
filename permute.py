@@ -7,7 +7,7 @@ from pathlib import Path
 
 from discover import FileGroups, MediaType, collect_files
 from ffmpeg_util import check_dependencies
-from menus import prompt_fades, prompt_for_type, prompt_minutes, prompt_time
+from menus import prompt_fades, prompt_for_type, prompt_minutes, prompt_speed, prompt_time
 import presets
 
 
@@ -76,6 +76,21 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
         except Exception as exc:
             print(f"  Failed: {exc}")
             return 0, 1
+
+    if action == "speed_up":
+        speed = prompt_speed()
+        if speed is None:
+            return 0, 0
+        for path in files:
+            try:
+                print(f"\nSpeeding up ({speed}x): {path.name}")
+                out = presets.speed_up_video(path, speed)
+                print(f"  -> {out.name}")
+                ok += 1
+            except Exception as exc:
+                print(f"  Failed: {exc}")
+                fail += 1
+        return ok, fail
 
     if action == "split":
         minutes = prompt_minutes()

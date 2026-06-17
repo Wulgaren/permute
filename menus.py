@@ -47,6 +47,7 @@ def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
     options = [
         "Best MP4 (H.265)",
         "Extract audio (best M4A)",
+        "Speed up",
         "Split by duration",
     ]
     if can_combine:
@@ -59,10 +60,19 @@ def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
     if not choice:
         return None
 
-    actions = ["h265_mp4", "extract_audio", "split"]
+    actions = ["h265_mp4", "extract_audio", "speed_up", "split"]
     if can_combine:
         actions.append("combine")
     return actions[choice - 1]
+
+
+def prompt_speed() -> float | None:
+    choice = _prompt_choice(
+        ["1.5x", "2x", "2.5x", "3x"],
+        "Speed factor",
+    )
+    speeds = [1.5, 2.0, 2.5, 3.0]
+    return speeds[choice - 1] if choice else None
 
 
 def prompt_gif_action(files: list) -> str | None:

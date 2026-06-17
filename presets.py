@@ -9,6 +9,8 @@ from ffmpeg_util import (
     attach_cover_art,
     conversion_output,
     extract_cover_art,
+    h265_video_args,
+    has_audio_stream,
     output_path,
     run_ffmpeg,
     split_output_pattern,
@@ -34,11 +36,46 @@ def to_mp3_128(path: Path) -> Path:
     return out
 
 
+def _atempo_chain(speed: float) -> str:
+    """Build atempo filter chain (each atempo stage must stay within 0.5–2.0)."""
+    filters: list[str] = []
+    remaining = speed
+    while remaining > 2.0:
+        filters.append("atempo=2.0")
+        remaining /= 2.0
+    while remaining < 0.5:
+        filters.append("atempo=0.5")
+        remaining /= 0.5
+    filters.append(f"atempo={remaining}")
+    return ",".join(filters)
+
+
+def _speed_suffix(speed: float) -> str:
+    label = str(int(speed)) if speed == int(speed) else str(speed)
+    return f"{label}x"
+
+
+def speed_up_video(path: Path, speed: float) -> Path:
+    out = conversion_output(path, target_ext=".mp4", suffix_if_same=_speed_suffix(speed))
+    args = ["-i", str(path), "-vf", f"setpts=PTS/{speed}"]
+    if has_audio_stream(path):
+        args.extend(["-af", _atempo_chain(speed), "-c:a", "aac", "-q:a", "2"])
+    else:
+        args.append("-an")
+    args.extend([
+        *h265_video_args(),
+        "-movflags", "+faststart",
+        str(out),
+    ])
+    run_ffmpeg(args)
+    return out
+
+
 def to_h265_mp4(path: Path) -> Path:
     out = conversion_output(path, target_ext=".mp4", suffix_if_same="h265")
     run_ffmpeg([
         "-i", str(path),
-        "-c:v", "libx265", "-crf", "22", "-preset", "slow", "-tag:v", "hvc1",
+        *h265_video_args(),
         "-c:a", "aac", "-q:a", "2",
         "-movflags", "+faststart",
         str(out),
@@ -55,7 +92,8 @@ def gif_to_mp4(path: Path) -> Path:
     run_ffmpeg([
         "-i", str(path),
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        "-c:v", "libx265", "-crf", "28", "-pix_fmt", "yuv420p",
+        *h265_video_args(crf="28", preset=None),
+        "-pix_fmt", "yuv420p",
         "-movflags", "+faststart",
         "-an",
         str(out),
@@ -140,7 +178,7 @@ def combine_videos(paths: list[Path]) -> Path:
     try:
         run_ffmpeg([
             "-f", "concat", "-safe", "0", "-i", list_path,
-            "-c:v", "libx265", "-crf", "22", "-preset", "slow", "-tag:v", "hvc1",
+            *h265_video_args(),
             "-c:a", "aac", "-q:a", "2",
             "-movflags", "+faststart",
             str(out),

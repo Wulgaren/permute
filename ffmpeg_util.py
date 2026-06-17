@@ -15,6 +15,50 @@ def check_dependencies() -> None:
             )
 
 
+_ENCODER_CACHE: set[str] | None = None
+
+
+def _available_encoders() -> set[str]:
+    global _ENCODER_CACHE
+    if _ENCODER_CACHE is None:
+        result = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-encoders"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        encoders: set[str] = set()
+        for line in result.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[0].startswith("V"):
+                encoders.add(parts[1])
+        _ENCODER_CACHE = encoders
+    return _ENCODER_CACHE
+
+
+def h265_video_args(*, crf: str = "22", preset: str | None = "slow") -> list[str]:
+    """Return ffmpeg video-encoding args, preferring HEVC with fallbacks."""
+    encoders = _available_encoders()
+    if "libx265" in encoders:
+        args = ["-c:v", "libx265", "-crf", crf]
+        if preset:
+            args.extend(["-preset", preset])
+        args.extend(["-tag:v", "hvc1"])
+        return args
+    if "hevc_videotoolbox" in encoders:
+        q = str(max(1, min(100, 100 - int(float(crf)))))
+        return ["-c:v", "hevc_videotoolbox", "-q:v", q, "-tag:v", "hvc1"]
+    if "libx264" in encoders:
+        args = ["-c:v", "libx264", "-crf", crf]
+        if preset:
+            args.extend(["-preset", preset])
+        return args
+    if "h264_videotoolbox" in encoders:
+        q = str(max(1, min(100, 100 - int(float(crf)))))
+        return ["-c:v", "h264_videotoolbox", "-q:v", q]
+    raise RuntimeError("No H.264/H.265 video encoder found in ffmpeg")
+
+
 def run_ffmpeg(args: list[str], *, quiet: bool = False) -> None:
     cmd = ["ffmpeg", "-hide_banner", "-y", *args]
     if not quiet:
@@ -78,6 +122,21 @@ def output_path(input_path: Path, suffix: str | None = None, new_ext: str | None
 def split_output_pattern(input_path: Path) -> Path:
     """Return path pattern like movie_part%02d.mp4 for segment muxer."""
     return input_path.parent / f"{input_path.stem}_part%02d{input_path.suffix}"
+
+
+def has_audio_stream(path: Path) -> bool:
+    result = subprocess.run(
+        [
+            "ffprobe", "-v", "error",
+            "-select_streams", "a",
+            "-show_entries", "stream=index",
+            "-of", "csv=p=0",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    return bool(result.stdout.strip())
 
 
 def has_cover_art(path: Path) -> bool:
