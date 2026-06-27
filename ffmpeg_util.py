@@ -202,3 +202,24 @@ def stream_copy_with_cover_args() -> list[str]:
         "-disposition:v:0", "attached_pic",
     ]
 
+
+def cue_track_metadata_args(
+    *,
+    title: str,
+    track_number: int,
+    performer: str | None = None,
+    album_title: str | None = None,
+) -> list[str]:
+    """Override per-track tags instead of copying the source album title."""
+    args = [
+        "-metadata", f"title={title}",
+        "-metadata", f"track={track_number}",
+        "-metadata", "comment=",
+        "-metadata", "synopsis=",
+    ]
+    if performer:
+        args.extend(["-metadata", f"artist={performer}"])
+    if album_title:
+        args.extend(["-metadata", f"album={album_title}"])
+    return args
+

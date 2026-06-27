@@ -17,6 +17,8 @@ class CueTrack:
 class CueSheet:
     audio_path: Path
     tracks: list[CueTrack]
+    performer: str | None = None
+    album_title: str | None = None
 
 
 def _index_to_seconds(index: str) -> float:
@@ -38,6 +40,8 @@ def parse_cue(cue_path: Path) -> CueSheet:
     lines = [line.strip() for line in text.splitlines()]
 
     audio_file: str | None = None
+    performer: str | None = None
+    album_title: str | None = None
     tracks: list[dict] = []
     current: dict | None = None
 
@@ -52,6 +56,14 @@ def parse_cue(cue_path: Path) -> CueSheet:
             else:
                 rest = line[5:].strip().rsplit(None, 1)
                 audio_file = rest[0].strip('"') if rest else None
+            continue
+
+        if line.upper().startswith("PERFORMER "):
+            performer = line[10:].strip().strip('"')
+            continue
+
+        if line.upper().startswith("TITLE ") and current is None:
+            album_title = line[6:].strip().strip('"')
             continue
 
         if line.upper().startswith("TRACK "):
@@ -101,4 +113,9 @@ def parse_cue(cue_path: Path) -> CueSheet:
     if not cue_tracks:
         raise ValueError(f"No tracks with INDEX found in {cue_path}")
 
-    return CueSheet(audio_path=audio_path, tracks=cue_tracks)
+    return CueSheet(
+        audio_path=audio_path,
+        tracks=cue_tracks,
+        performer=performer,
+        album_title=album_title,
+    )

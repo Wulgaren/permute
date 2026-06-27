@@ -9,6 +9,7 @@ from cue import CueSheet, parse_cue
 from ffmpeg_util import (
     attach_cover_art,
     conversion_output,
+    cue_track_metadata_args,
     extract_cover_art,
     h265_video_args,
     has_audio_stream,
@@ -243,12 +244,20 @@ def split_cue_track(
 
     args = ["-ss", str(track.start_seconds), "-i", str(sheet.audio_path)]
     if track.end_seconds is not None:
-        args.extend(["-to", str(track.end_seconds)])
+        # -to is relative to output timeline when -ss is before -i; use -t for duration.
+        args.extend(["-t", str(track.end_seconds - track.start_seconds)])
+
+    metadata = cue_track_metadata_args(
+        title=track.title,
+        track_number=track.number,
+        performer=sheet.performer,
+        album_title=sheet.album_title,
+    )
 
     if same_source:
-        args.extend([*stream_copy_with_cover_args(), str(out)])
+        args.extend([*stream_copy_with_cover_args(), *metadata, str(out)])
     else:
-        args.extend(["-vn", "-c:a", "aac", "-q:a", "0", str(out)])
+        args.extend(["-vn", "-c:a", "aac", "-q:a", "0", *metadata, str(out)])
 
     run_ffmpeg(args)
     return out
