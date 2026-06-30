@@ -212,6 +212,21 @@ def _run_pdf(action: str, files: list[Path]) -> tuple[int, int]:
 
 def _run_gif(action: str, files: list[Path]) -> tuple[int, int]:
     ok = fail = 0
+
+    if action == "frame_jpg":
+        frame_number = prompt_frame_number()
+        frame_index = frame_number - 1
+        for path in files:
+            try:
+                print(f"\nExtracting frame {frame_number}: {path.name}")
+                out = presets.video_frame_jpg(path, frame_index=frame_index)
+                print(f"  -> {out.name}")
+                ok += 1
+            except Exception as exc:
+                print(f"  Failed: {exc}")
+                fail += 1
+        return ok, fail
+
     handlers = {
         "to_mp4": presets.gif_to_mp4,
         "optimize": presets.optimize_gif,

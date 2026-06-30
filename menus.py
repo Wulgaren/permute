@@ -121,10 +121,11 @@ def prompt_gif_action(files: list) -> str | None:
         [
             "Convert to MP4 (H.265)",
             "Optimize GIF",
+            "Best JPG (extract frame)",
         ],
         f"GIF files ({len(files)}): {_format_file_list(files)}",
     )
-    actions = ["to_mp4", "optimize"]
+    actions = ["to_mp4", "optimize", "frame_jpg"]
     return actions[choice - 1] if choice else None
 
 
