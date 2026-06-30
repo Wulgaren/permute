@@ -49,6 +49,7 @@ def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
         "Best MP4 (H.265)",
         "Compress video",
         "Extract audio (best M4A)",
+        "Best JPG (extract frame)",
         "Speed up",
         "Split by duration",
     ]
@@ -62,7 +63,37 @@ def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
     if not choice:
         return None
 
-    actions = ["h265_mp4", "compress", "extract_audio", "speed_up", "split"]
+    actions = ["h265_mp4", "compress", "extract_audio", "frame_jpg", "speed_up", "split"]
+    if can_combine:
+        actions.append("combine")
+    return actions[choice - 1]
+
+
+def prompt_image_action(files: list) -> str | None:
+    choice = _prompt_choice(
+        [
+            "Best JPG",
+            "Convert to PDF",
+        ],
+        f"Image files ({len(files)}): {_format_file_list(files)}",
+    )
+    actions = ["best_jpg", "to_pdf"]
+    return actions[choice - 1] if choice else None
+
+
+def prompt_pdf_action(files: list, *, can_combine: bool) -> str | None:
+    options = ["Best JPG"]
+    if can_combine:
+        options.append("Combine into one PDF")
+
+    choice = _prompt_choice(
+        options,
+        f"PDF files ({len(files)}): {_format_file_list(files)}",
+    )
+    if not choice:
+        return None
+
+    actions = ["best_jpg"]
     if can_combine:
         actions.append("combine")
     return actions[choice - 1]
@@ -121,6 +152,18 @@ def prompt_minutes() -> float:
         print("Enter a positive number.")
 
 
+def prompt_frame_number() -> int:
+    while True:
+        raw = input("Frame number [3]: ").strip()
+        if not raw:
+            return 3
+        if raw.isdigit():
+            value = int(raw)
+            if value >= 1:
+                return value
+        print("Enter a positive integer.")
+
+
 def prompt_time(label: str) -> str:
     while True:
         raw = input(f"{label}: ").strip()
@@ -144,6 +187,10 @@ def prompt_for_type(media_type: MediaType, files: list) -> str | None:
         return prompt_audio_action(files)
     if media_type is MediaType.VIDEO:
         return prompt_video_action(files, can_combine=len(files) >= 2)
+    if media_type is MediaType.IMAGE:
+        return prompt_image_action(files)
+    if media_type is MediaType.PDF:
+        return prompt_pdf_action(files, can_combine=len(files) >= 2)
     if media_type is MediaType.GIF:
         return prompt_gif_action(files)
     if media_type is MediaType.CUE:

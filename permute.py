@@ -11,6 +11,7 @@ from menus import (
     prompt_compress_preset,
     prompt_fades,
     prompt_for_type,
+    prompt_frame_number,
     prompt_minutes,
     prompt_speed,
     prompt_time,
@@ -127,6 +128,20 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
                 fail += 1
         return ok, fail
 
+    if action == "frame_jpg":
+        frame_number = prompt_frame_number()
+        frame_index = frame_number - 1
+        for path in files:
+            try:
+                print(f"\nExtracting frame {frame_number}: {path.name}")
+                out = presets.video_frame_jpg(path, frame_index=frame_index)
+                print(f"  -> {out.name}")
+                ok += 1
+            except Exception as exc:
+                print(f"  Failed: {exc}")
+                fail += 1
+        return ok, fail
+
     handlers = {
         "h265_mp4": presets.to_h265_mp4,
         "extract_audio": presets.extract_audio,
@@ -137,6 +152,57 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
             print(f"\nConverting: {path.name}")
             out = handler(path)
             print(f"  -> {out.name}")
+            ok += 1
+        except Exception as exc:
+            print(f"  Failed: {exc}")
+            fail += 1
+    return ok, fail
+
+
+def _run_image(action: str, files: list[Path]) -> tuple[int, int]:
+    ok = fail = 0
+
+    if action == "to_pdf":
+        try:
+            print(f"\nConverting {len(files)} image(s) to PDF")
+            out = presets.images_to_pdf(files)
+            print(f"  -> {out.name}")
+            return 1, 0
+        except Exception as exc:
+            print(f"  Failed: {exc}")
+            return 0, 1
+
+    for path in files:
+        try:
+            print(f"\nConverting: {path.name}")
+            out = presets.to_best_jpg(path)
+            print(f"  -> {out.name}")
+            ok += 1
+        except Exception as exc:
+            print(f"  Failed: {exc}")
+            fail += 1
+    return ok, fail
+
+
+def _run_pdf(action: str, files: list[Path]) -> tuple[int, int]:
+    ok = fail = 0
+
+    if action == "combine":
+        try:
+            print(f"\nCombining {len(files)} PDF(s)")
+            out = presets.combine_pdfs(files)
+            print(f"  -> {out.name}")
+            return 1, 0
+        except Exception as exc:
+            print(f"  Failed: {exc}")
+            return 0, 1
+
+    for path in files:
+        try:
+            print(f"\nConverting: {path.name}")
+            outputs = presets.pdf_to_jpg(path)
+            for out in outputs:
+                print(f"  -> {out.name}")
             ok += 1
         except Exception as exc:
             print(f"  Failed: {exc}")
@@ -183,6 +249,8 @@ def process_groups(groups: FileGroups) -> tuple[int, int]:
     type_groups = [
         (MediaType.AUDIO, groups.audio),
         (MediaType.VIDEO, groups.video),
+        (MediaType.IMAGE, groups.image),
+        (MediaType.PDF, groups.pdf),
         (MediaType.GIF, groups.gif),
         (MediaType.CUE, groups.cue),
     ]
@@ -200,6 +268,10 @@ def process_groups(groups: FileGroups) -> tuple[int, int]:
             ok, fail = _run_audio(action, files)
         elif media_type is MediaType.VIDEO:
             ok, fail = _run_video(action, files)
+        elif media_type is MediaType.IMAGE:
+            ok, fail = _run_image(action, files)
+        elif media_type is MediaType.PDF:
+            ok, fail = _run_pdf(action, files)
         elif media_type is MediaType.GIF:
             ok, fail = _run_gif(action, files)
         elif media_type is MediaType.CUE:
@@ -228,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
     check_dependencies()
     groups = collect_files(args.paths)
 
-    if not any([groups.audio, groups.video, groups.gif, groups.cue]):
+    if not any([groups.audio, groups.video, groups.image, groups.pdf, groups.gif, groups.cue]):
         _print_skipped(groups)
         print("No supported media files found.")
         return 1

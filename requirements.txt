@@ -1,2 +1,4 @@
-# No external dependencies — stdlib only.
-# Requires ffmpeg and ffprobe on PATH.
+# Python deps for image/PDF conversion. ffmpeg/ffprobe still required on PATH.
+Pillow
+pypdf
+pymupdf

@@ -127,6 +127,108 @@ def extract_audio(path: Path) -> Path:
     return to_m4a_vbr(path)
 
 
+def to_best_jpg(path: Path) -> Path:
+    out = conversion_output(path, target_ext=".jpg", suffix_if_same="best")
+    run_ffmpeg([
+        "-i", str(path),
+        "-q:v", "2",
+        str(out),
+    ])
+    return out
+
+
+def images_to_pdf(paths: list[Path]) -> Path:
+    try:
+        from PIL import Image
+    except ImportError as exc:
+        raise RuntimeError(
+            "Pillow required for image→PDF. Install: pip install Pillow"
+        ) from exc
+
+    if len(paths) == 1:
+        out = conversion_output(paths[0], target_ext=".pdf", suffix_if_same="converted")
+    else:
+        out = paths[0].parent / "combined.pdf"
+        if out.exists():
+            out = output_path(paths[0], suffix="combined", new_ext=".pdf")
+
+    images = []
+    try:
+        for path in paths:
+            img = Image.open(path)
+            if img.mode in ("RGBA", "P", "LA"):
+                img = img.convert("RGB")
+            images.append(img)
+        images[0].save(out, save_all=True, append_images=images[1:])
+    finally:
+        for img in images:
+            img.close()
+    return out
+
+
+def pdf_to_jpg(path: Path) -> list[Path]:
+    try:
+        import fitz
+    except ImportError as exc:
+        raise RuntimeError(
+            "PyMuPDF required for PDF→JPG. Install: pip install -r requirements.txt"
+        ) from exc
+
+    doc = fitz.open(path)
+    outputs: list[Path] = []
+    try:
+        page_count = len(doc)
+        for index, page in enumerate(doc):
+            if page_count == 1:
+                out = output_path(path, new_ext=".jpg")
+            else:
+                base = path.parent / f"{path.stem}_page{index + 1:03d}.jpg"
+                out = base if not base.exists() else output_path(
+                    path.parent / f"{path.stem}_page{index + 1:03d}",
+                    new_ext=".jpg",
+                )
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+            pix.save(str(out), jpg_quality=95)
+            outputs.append(out)
+    finally:
+        doc.close()
+    return outputs
+
+
+def combine_pdfs(paths: list[Path]) -> Path:
+    try:
+        from pypdf import PdfWriter
+    except ImportError as exc:
+        raise RuntimeError(
+            "pypdf required to merge PDFs. Install: pip install -r requirements.txt"
+        ) from exc
+
+    out = paths[0].parent / "combined.pdf"
+    if out.exists():
+        out = output_path(paths[0], suffix="combined", new_ext=".pdf")
+
+    writer = PdfWriter()
+    for pdf_path in paths:
+        writer.append(str(pdf_path))
+    with open(out, "wb") as handle:
+        writer.write(handle)
+    return out
+
+
+def video_frame_jpg(path: Path, *, frame_index: int) -> Path:
+    """Extract a single frame as JPEG (frame_index is 0-based)."""
+    out = output_path(path, suffix=f"frame{frame_index + 1}", new_ext=".jpg")
+    run_ffmpeg([
+        "-i", str(path),
+        "-vf", f"select=eq(n\\,{frame_index})",
+        "-vsync", "vfr",
+        "-frames:v", "1",
+        "-q:v", "2",
+        str(out),
+    ])
+    return out
+
+
 def gif_to_mp4(path: Path) -> Path:
     out = output_path(path, new_ext=".mp4")
     run_ffmpeg([
