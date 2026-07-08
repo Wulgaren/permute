@@ -55,7 +55,7 @@ def _run_audio(action: str, files: list[Path]) -> tuple[int, int]:
         return ok, fail
 
     handlers = {
-        "m4a": presets.to_m4a_vbr,
+        "m4a": presets.to_m4a,
         "mp3_vbr": presets.to_mp3_vbr,
         "mp3_128": presets.to_mp3_128,
     }

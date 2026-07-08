@@ -7,6 +7,7 @@ from pathlib import Path
 
 from cue import CueSheet, parse_cue
 from ffmpeg_util import (
+    aac_encode_args,
     attach_cover_art,
     conversion_output,
     cue_track_metadata_args,
@@ -19,6 +20,9 @@ from ffmpeg_util import (
     stream_copy_with_cover_args,
     video_scale_filter,
 )
+
+BEST_M4A_BITRATE = "256k"
+VIDEO_AAC_BITRATE = "160k"
 
 
 @dataclass(frozen=True)
@@ -39,9 +43,13 @@ VIDEO_COMPRESS_PRESETS: list[VideoCompressPreset] = [
 ]
 
 
-def to_m4a_vbr(path: Path) -> Path:
-    out = conversion_output(path, target_ext=".m4a", suffix_if_same="vbr")
-    run_ffmpeg(["-i", str(path), "-vn", "-c:a", "aac", "-q:a", "0", str(out)])
+def to_m4a(path: Path) -> Path:
+    out = conversion_output(path, target_ext=".m4a", suffix_if_same="256k")
+    run_ffmpeg([
+        "-i", str(path), "-vn",
+        *aac_encode_args(bitrate=BEST_M4A_BITRATE, resample_48k=True),
+        str(out),
+    ])
     return out
 
 
@@ -80,7 +88,10 @@ def speed_up_video(path: Path, speed: float) -> Path:
     out = conversion_output(path, target_ext=".mp4", suffix_if_same=_speed_suffix(speed))
     args = ["-i", str(path), "-vf", f"setpts=PTS/{speed}"]
     if has_audio_stream(path):
-        args.extend(["-af", _atempo_chain(speed), "-c:a", "aac", "-q:a", "2"])
+        args.extend([
+            "-af", _atempo_chain(speed),
+            *aac_encode_args(bitrate=VIDEO_AAC_BITRATE, resample_48k=True),
+        ])
     else:
         args.append("-an")
     args.extend([
@@ -97,7 +108,7 @@ def to_h265_mp4(path: Path) -> Path:
     run_ffmpeg([
         "-i", str(path),
         *h265_video_args(),
-        "-c:a", "aac", "-q:a", "2",
+        *aac_encode_args(bitrate=VIDEO_AAC_BITRATE, resample_48k=True),
         "-movflags", "+faststart",
         str(out),
     ])
@@ -111,7 +122,7 @@ def compress_video(path: Path, preset: VideoCompressPreset) -> Path:
         "-vf", video_scale_filter(preset.max_width, preset.max_height),
     ]
     if has_audio_stream(path):
-        args.extend(["-c:a", "aac", "-b:a", "160k"])
+        args.extend(aac_encode_args(bitrate=VIDEO_AAC_BITRATE, resample_48k=True))
     else:
         args.append("-an")
     args.extend([
@@ -124,7 +135,7 @@ def compress_video(path: Path, preset: VideoCompressPreset) -> Path:
 
 
 def extract_audio(path: Path) -> Path:
-    return to_m4a_vbr(path)
+    return to_m4a(path)
 
 
 def to_best_jpg(path: Path) -> Path:
@@ -265,7 +276,7 @@ def trim_audio(path: Path, start: str, end: str, *, fades: bool) -> Path:
             "-i", str(path),
             "-ss", start, "-to", end,
             "-af", fade_filter,
-            "-c:a", "aac", "-q:a", "0",
+            *aac_encode_args(bitrate=BEST_M4A_BITRATE, resample_48k=True),
             str(out),
         ])
     else:
@@ -321,7 +332,7 @@ def combine_videos(paths: list[Path]) -> Path:
         run_ffmpeg([
             "-f", "concat", "-safe", "0", "-i", list_path,
             *h265_video_args(),
-            "-c:a", "aac", "-q:a", "2",
+            *aac_encode_args(bitrate=VIDEO_AAC_BITRATE, resample_48k=True),
             "-movflags", "+faststart",
             str(out),
         ])
@@ -359,7 +370,12 @@ def split_cue_track(
     if same_source:
         args.extend([*stream_copy_with_cover_args(), *metadata, str(out)])
     else:
-        args.extend(["-vn", "-c:a", "aac", "-q:a", "0", *metadata, str(out)])
+        args.extend([
+            "-vn",
+            *aac_encode_args(bitrate=BEST_M4A_BITRATE, resample_48k=True),
+            *metadata,
+            str(out),
+        ])
 
     run_ffmpeg(args)
     return out

@@ -32,7 +32,7 @@ def _format_file_list(files: list, limit: int = 3) -> str:
 def prompt_audio_action(files: list) -> str | None:
     choice = _prompt_choice(
         [
-            "Best M4A (VBR)",
+            "Best M4A (256k CBR)",
             "Best MP3 (VBR)",
             "MP3 128 kbps",
             "Trim audio",
@@ -48,7 +48,7 @@ def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
     options = [
         "Best MP4 (H.265)",
         "Compress video",
-        "Extract audio (best M4A)",
+        "Extract audio (256k M4A)",
         "Best JPG (extract frame)",
         "Speed up",
         "Split by duration",
@@ -133,7 +133,7 @@ def prompt_cue_action(files: list) -> str | None:
     choice = _prompt_choice(
         [
             "Split (same as source)",
-            "Split (best M4A VBR)",
+            "Split (best M4A, 256k CBR)",
         ],
         f"CUE files ({len(files)}): {_format_file_list(files)}",
     )

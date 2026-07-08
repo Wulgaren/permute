@@ -16,6 +16,35 @@ def check_dependencies() -> None:
 
 
 _ENCODER_CACHE: set[str] | None = None
+_AAC_NMR_CACHE: bool | None = None
+
+
+def _aac_has_nmr() -> bool:
+    """True when ffmpeg ships Lynne's native AAC encoder (aac_coder nmr)."""
+    global _AAC_NMR_CACHE
+    if _AAC_NMR_CACHE is None:
+        result = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-h", "encoder=aac"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        _AAC_NMR_CACHE = any(
+            line.strip().startswith("nmr")
+            for line in result.stdout.splitlines()
+        )
+    return _AAC_NMR_CACHE
+
+
+def aac_encode_args(*, bitrate: str, resample_48k: bool = False) -> list[str]:
+    """CBR AAC. Uses -aac_coder nmr + 48 kHz when the new encoder is available."""
+    args = ["-c:a", "aac"]
+    if _aac_has_nmr():
+        args.extend(["-aac_coder", "nmr"])
+        if resample_48k:
+            args.extend(["-ar", "48000"])
+    args.extend(["-b:a", bitrate])
+    return args
 
 
 def _available_encoders() -> set[str]:
