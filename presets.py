@@ -12,6 +12,7 @@ from ffmpeg_util import (
     conversion_output,
     cue_track_metadata_args,
     extract_cover_art,
+    fps_sync_args,
     h265_video_args,
     has_audio_stream,
     output_path,
@@ -232,7 +233,7 @@ def video_frame_jpg(path: Path, *, frame_index: int) -> Path:
     run_ffmpeg([
         "-i", str(path),
         "-vf", f"select=eq(n\\,{frame_index})",
-        "-vsync", "vfr",
+        *fps_sync_args("vfr"),
         "-frames:v", "1",
         "-q:v", "2",
         str(out),

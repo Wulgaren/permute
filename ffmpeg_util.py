@@ -17,6 +17,7 @@ def check_dependencies() -> None:
 
 _ENCODER_CACHE: set[str] | None = None
 _AAC_NMR_CACHE: bool | None = None
+_FPS_MODE_OPTION: str | None = None
 
 
 def _aac_has_nmr() -> bool:
@@ -71,6 +72,22 @@ def video_scale_filter(max_width: int, max_height: int) -> str:
         f"scale={max_width}:{max_height}:force_original_aspect_ratio=decrease,"
         "scale=trunc(iw/2)*2:trunc(ih/2)*2"
     )
+
+
+def fps_sync_args(mode: str = "vfr") -> list[str]:
+    """Return -fps_mode or legacy -vsync args depending on ffmpeg version."""
+    global _FPS_MODE_OPTION
+    if _FPS_MODE_OPTION is None:
+        result = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-h", "full"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        _FPS_MODE_OPTION = "fps_mode" if "-fps_mode" in result.stdout else "vsync"
+    if _FPS_MODE_OPTION == "fps_mode":
+        return ["-fps_mode", mode]
+    return ["-vsync", mode]
 
 
 def h265_video_args(*, crf: str = "22", preset: str | None = "slow") -> list[str]:
