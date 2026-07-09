@@ -265,21 +265,35 @@ def optimize_gif(path: Path) -> Path:
     return out
 
 
-def trim_audio(path: Path, start: str, end: str, *, fades: bool) -> Path:
-    if fades:
-        out = output_path(path, suffix="fade")
-        # Reverse trick: fade in + fade out without knowing segment duration.
-        fade_filter = (
-            "afade=t=in:st=0:d=2,"
-            "areverse,afade=t=in:st=0:d=2,areverse"
-        )
-        run_ffmpeg([
-            "-i", str(path),
-            "-ss", start, "-to", end,
-            "-af", fade_filter,
-            *aac_encode_args(bitrate=BEST_M4A_BITRATE, resample_48k=True),
-            str(out),
-        ])
+def trim_audio(
+    path: Path, start: str, end: str, *, fade_in: bool, fade_out: bool,
+) -> Path:
+    if fade_in or fade_out:
+        out = conversion_output(path, target_ext=".m4a", suffix_if_same="fade")
+        parts: list[str] = []
+        if fade_in:
+            parts.append("afade=t=in:st=0:d=2")
+        if fade_out:
+            # Reverse trick: fade out without knowing segment duration.
+            parts.append("areverse,afade=t=in:st=0:d=2,areverse")
+        fade_filter = ",".join(parts)
+        cover = extract_cover_art(path)
+        try:
+            run_ffmpeg([
+                "-i", str(path),
+                "-ss", start, "-to", end,
+                "-map", "0:a",
+                "-map_metadata", "0",
+                "-af", fade_filter,
+                *aac_encode_args(bitrate=BEST_M4A_BITRATE, resample_48k=True),
+                str(out),
+            ])
+            if cover:
+                attach_cover_art(out, cover)
+            return out
+        finally:
+            if cover:
+                cover.unlink(missing_ok=True)
     else:
         out = output_path(path, suffix="trim")
         run_ffmpeg([

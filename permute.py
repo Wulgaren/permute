@@ -9,7 +9,8 @@ from discover import FileGroups, MediaType, collect_files
 from ffmpeg_util import check_dependencies
 from menus import (
     prompt_compress_preset,
-    prompt_fades,
+    prompt_fade_in,
+    prompt_fade_out,
     prompt_for_type,
     prompt_frame_number,
     prompt_minutes,
@@ -28,13 +29,14 @@ def _run_audio(action: str, files: list[Path]) -> tuple[int, int]:
     ok = fail = 0
 
     if action == "trim":
-        start = prompt_time("Start time")
-        end = prompt_time("End time")
-        fades = prompt_fades()
+        start = prompt_time("Start time (HH:MM:SS)")
+        end = prompt_time("End time (HH:MM:SS)")
+        fade_in = prompt_fade_in()
+        fade_out = prompt_fade_out()
         for path in files:
             try:
                 print(f"\nTrimming: {path.name}")
-                presets.trim_audio(path, start, end, fades=fades)
+                presets.trim_audio(path, start, end, fade_in=fade_in, fade_out=fade_out)
                 ok += 1
             except Exception as exc:
                 print(f"  Failed: {exc}")

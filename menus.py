@@ -173,14 +173,22 @@ def prompt_time(label: str) -> str:
         print("Required.")
 
 
-def prompt_fades() -> bool:
+def _prompt_yes_no(prompt: str) -> bool:
     while True:
-        raw = input("Add fade in/out? (y/n): ").strip().lower()
+        raw = input(f"{prompt} (y/n): ").strip().lower()
         if raw in ("y", "yes"):
             return True
         if raw in ("n", "no"):
             return False
         print("Enter y or n.")
+
+
+def prompt_fade_in() -> bool:
+    return _prompt_yes_no("Add fade in")
+
+
+def prompt_fade_out() -> bool:
+    return _prompt_yes_no("Add fade out")
 
 
 def prompt_for_type(media_type: MediaType, files: list) -> str | None:
