@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -155,7 +157,7 @@ def output_path(input_path: Path, suffix: str | None = None, new_ext: str | None
     ext = new_ext if new_ext is not None else input_path.suffix
 
     if new_ext is not None:
-        name = f"{stem}{ext}"
+        name = f"{stem}_{suffix}{ext}" if suffix else f"{stem}{ext}"
     elif suffix:
         name = f"{stem}_{suffix}{ext}"
     else:
@@ -179,18 +181,70 @@ def split_output_pattern(input_path: Path) -> Path:
 
 
 def has_audio_stream(path: Path) -> bool:
+    return bool(probe_audio_streams(path))
+
+
+@dataclass(frozen=True)
+class AudioStreamInfo:
+    index: int
+    codec: str
+    channels: int
+    language: str | None
+    title: str | None
+    default: bool
+
+
+def _channel_label(channels: int) -> str:
+    if channels == 1:
+        return "mono"
+    if channels == 2:
+        return "stereo"
+    return f"{channels}ch"
+
+
+def audio_stream_label(stream: AudioStreamInfo) -> str:
+    parts = [stream.codec.upper(), _channel_label(stream.channels)]
+    if stream.language:
+        parts.append(stream.language)
+    if stream.title:
+        parts.append(stream.title)
+    label = ", ".join(parts)
+    if stream.default:
+        label += " (default)"
+    return label
+
+
+def probe_audio_streams(path: Path) -> list[AudioStreamInfo]:
     result = subprocess.run(
         [
             "ffprobe", "-v", "error",
             "-select_streams", "a",
-            "-show_entries", "stream=index",
-            "-of", "csv=p=0",
+            "-show_entries",
+            "stream=index,codec_name,channels:stream_tags=language,title",
+            "-show_entries", "stream_disposition=default",
+            "-of", "json",
             str(path),
         ],
         capture_output=True,
         text=True,
+        check=True,
     )
-    return bool(result.stdout.strip())
+    payload = json.loads(result.stdout or "{}")
+    streams: list[AudioStreamInfo] = []
+    for entry in payload.get("streams", []):
+        tags = entry.get("tags") or {}
+        disposition = entry.get("disposition") or {}
+        streams.append(
+            AudioStreamInfo(
+                index=int(entry["index"]),
+                codec=entry.get("codec_name") or "unknown",
+                channels=int(entry.get("channels") or 0),
+                language=tags.get("language"),
+                title=tags.get("title"),
+                default=bool(disposition.get("default")),
+            )
+        )
+    return streams
 
 
 def has_cover_art(path: Path) -> bool:

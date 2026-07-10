@@ -7,7 +7,9 @@ from pathlib import Path
 
 from discover import FileGroups, MediaType, collect_files
 from ffmpeg_util import check_dependencies
+from ffmpeg_util import probe_audio_streams
 from menus import (
+    prompt_audio_track,
     prompt_compress_preset,
     prompt_fade_in,
     prompt_fade_out,
@@ -144,9 +146,35 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
                 fail += 1
         return ok, fail
 
+    if action == "extract_audio":
+        audio_stream: int | None = None
+        streams = probe_audio_streams(files[0])
+        if len(streams) > 1:
+            picked = prompt_audio_track(streams)
+            if picked is None:
+                return 0, 0
+            audio_stream = picked
+
+        for path in files:
+            try:
+                if audio_stream is not None:
+                    path_streams = probe_audio_streams(path)
+                    if audio_stream >= len(path_streams):
+                        raise RuntimeError(
+                            f"Track {audio_stream + 1} not found "
+                            f"({len(path_streams)} audio track(s) available)"
+                        )
+                print(f"\nConverting: {path.name}")
+                out = presets.extract_audio(path, audio_stream=audio_stream)
+                print(f"  -> {out.name}")
+                ok += 1
+            except Exception as exc:
+                print(f"  Failed: {exc}")
+                fail += 1
+        return ok, fail
+
     handlers = {
         "h265_mp4": presets.to_h265_mp4,
-        "extract_audio": presets.extract_audio,
     }
     handler = handlers[action]
     for path in files:

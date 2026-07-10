@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from discover import MediaType
+from ffmpeg_util import AudioStreamInfo, audio_stream_label
 from presets import VIDEO_COMPRESS_PRESETS, VideoCompressPreset
 
 
@@ -97,6 +98,12 @@ def prompt_pdf_action(files: list, *, can_combine: bool) -> str | None:
     if can_combine:
         actions.append("combine")
     return actions[choice - 1]
+
+
+def prompt_audio_track(streams: list[AudioStreamInfo]) -> int | None:
+    options = [audio_stream_label(stream) for stream in streams]
+    choice = _prompt_choice(options, "Audio track")
+    return choice - 1 if choice else None
 
 
 def prompt_compress_preset() -> VideoCompressPreset | None:

@@ -44,10 +44,16 @@ VIDEO_COMPRESS_PRESETS: list[VideoCompressPreset] = [
 ]
 
 
-def to_m4a(path: Path) -> Path:
-    out = conversion_output(path, target_ext=".m4a", suffix_if_same="256k")
+def to_m4a(path: Path, *, audio_stream: int | None = None) -> Path:
+    if audio_stream is not None and audio_stream > 0:
+        out = output_path(path, suffix=f"track{audio_stream + 1}", new_ext=".m4a")
+    else:
+        out = conversion_output(path, target_ext=".m4a", suffix_if_same="256k")
+
+    map_args = ["-map", f"0:a:{audio_stream}"] if audio_stream is not None else ["-vn"]
     run_ffmpeg([
-        "-i", str(path), "-vn",
+        "-i", str(path),
+        *map_args,
         *aac_encode_args(bitrate=BEST_M4A_BITRATE, resample_48k=True),
         str(out),
     ])
@@ -135,8 +141,8 @@ def compress_video(path: Path, preset: VideoCompressPreset) -> Path:
     return out
 
 
-def extract_audio(path: Path) -> Path:
-    return to_m4a(path)
+def extract_audio(path: Path, *, audio_stream: int | None = None) -> Path:
+    return to_m4a(path, audio_stream=audio_stream)
 
 
 def to_best_jpg(path: Path) -> Path:
