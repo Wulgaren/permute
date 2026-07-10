@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+NULL_DEVICE = "NUL" if os.name == "nt" else "/dev/null"
 
 
 def check_dependencies() -> None:
@@ -90,6 +93,61 @@ def fps_sync_args(mode: str = "vfr") -> list[str]:
     if _FPS_MODE_OPTION == "fps_mode":
         return ["-fps_mode", mode]
     return ["-vsync", mode]
+
+
+def target_video_bitrate_k(
+    duration_sec: float,
+    max_size_mb: float,
+    audio_bitrate_k: int = 0,
+    *,
+    overhead: float = 0.95,
+) -> int:
+    """Video bitrate (kbps) to stay under max_size_mb for the given duration."""
+    if duration_sec <= 0:
+        raise ValueError(f"Invalid duration: {duration_sec}")
+    target_bits = max_size_mb * 1024 * 1024 * 8 * overhead
+    total_bitrate_k = target_bits / duration_sec / 1000
+    return max(int(total_bitrate_k - audio_bitrate_k), 64)
+
+
+def h265_video_bitrate_args(
+    *,
+    bitrate_k: int,
+    preset: str | None = "slow",
+    pass_num: int | None = None,
+    passlog: Path | None = None,
+) -> list[str]:
+    """Return ffmpeg video-encoding args for a target bitrate, preferring HEVC."""
+    encoders = _available_encoders()
+    if "libx265" in encoders:
+        args = ["-c:v", "libx265", "-b:v", f"{bitrate_k}k"]
+        if preset:
+            args.extend(["-preset", preset])
+        if pass_num is not None:
+            args.extend(["-pass", str(pass_num)])
+        if passlog is not None:
+            args.extend(["-passlogfile", str(passlog)])
+        args.extend(["-tag:v", "hvc1"])
+        return args
+    if "hevc_videotoolbox" in encoders:
+        return ["-c:v", "hevc_videotoolbox", "-b:v", f"{bitrate_k}k", "-tag:v", "hvc1"]
+    if "libx264" in encoders:
+        args = ["-c:v", "libx264", "-b:v", f"{bitrate_k}k"]
+        if preset:
+            args.extend(["-preset", preset])
+        if pass_num is not None:
+            args.extend(["-pass", str(pass_num)])
+        if passlog is not None:
+            args.extend(["-passlogfile", str(passlog)])
+        return args
+    if "h264_videotoolbox" in encoders:
+        return ["-c:v", "h264_videotoolbox", "-b:v", f"{bitrate_k}k"]
+    raise RuntimeError("No H.264/H.265 video encoder found in ffmpeg")
+
+
+def supports_two_pass_video() -> bool:
+    encoders = _available_encoders()
+    return "libx265" in encoders or "libx264" in encoders
 
 
 def h265_video_args(*, crf: str = "22", preset: str | None = "slow") -> list[str]:

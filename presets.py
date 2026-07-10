@@ -7,6 +7,7 @@ from pathlib import Path
 
 from cue import CueSheet, parse_cue
 from ffmpeg_util import (
+    NULL_DEVICE,
     aac_encode_args,
     attach_cover_art,
     conversion_output,
@@ -14,11 +15,15 @@ from ffmpeg_util import (
     extract_cover_art,
     fps_sync_args,
     h265_video_args,
+    h265_video_bitrate_args,
     has_audio_stream,
     output_path,
+    probe_duration,
     run_ffmpeg,
     split_output_pattern,
     stream_copy_with_cover_args,
+    supports_two_pass_video,
+    target_video_bitrate_k,
     video_scale_filter,
 )
 
@@ -34,10 +39,12 @@ class VideoCompressPreset:
     crf: str
     encoder_preset: str | None
     suffix: str
+    max_size_mb: float | None = None
 
 
 # HandBrake-inspired presets: H.265, downscale-to-fit, AAC 160k audio.
 VIDEO_COMPRESS_PRESETS: list[VideoCompressPreset] = [
+    VideoCompressPreset("Max 10 MB", 1280, 720, "24", "fast", "10mb", max_size_mb=10),
     VideoCompressPreset("Fast 1080p", 1920, 1080, "24", "fast", "1080p"),
     VideoCompressPreset("Fast 720p", 1280, 720, "24", "fast", "720p"),
     VideoCompressPreset("Fast 480p", 854, 480, "26", "fast", "480p"),
@@ -122,8 +129,68 @@ def to_h265_mp4(path: Path) -> Path:
     return out
 
 
+def _compress_video_target_size(path: Path, preset: VideoCompressPreset, out: Path) -> None:
+    assert preset.max_size_mb is not None
+    duration = probe_duration(path)
+    has_audio = has_audio_stream(path)
+    audio_k = 160 if has_audio else 0
+    video_k = target_video_bitrate_k(duration, preset.max_size_mb, audio_k)
+    print(f"  Target: ≤{preset.max_size_mb:g} MB ({duration:.1f}s → {video_k}k video + {audio_k}k audio)")
+
+    scale = ["-vf", video_scale_filter(preset.max_width, preset.max_height)]
+    input_args = ["-i", str(path), *scale]
+
+    if supports_two_pass_video():
+        with tempfile.TemporaryDirectory() as tmpdir:
+            passlog = Path(tmpdir) / "ffmpeg2pass"
+            run_ffmpeg([
+                *input_args,
+                *h265_video_bitrate_args(
+                    bitrate_k=video_k,
+                    preset=preset.encoder_preset,
+                    pass_num=1,
+                    passlog=passlog,
+                ),
+                "-an",
+                "-f", "null",
+                NULL_DEVICE,
+            ])
+            args = [*input_args]
+            if has_audio:
+                args.extend(aac_encode_args(bitrate=VIDEO_AAC_BITRATE, resample_48k=True))
+            else:
+                args.append("-an")
+            args.extend([
+                *h265_video_bitrate_args(
+                    bitrate_k=video_k,
+                    preset=preset.encoder_preset,
+                    pass_num=2,
+                    passlog=passlog,
+                ),
+                "-movflags", "+faststart",
+                str(out),
+            ])
+            run_ffmpeg(args)
+    else:
+        args = [*input_args]
+        if has_audio:
+            args.extend(aac_encode_args(bitrate=VIDEO_AAC_BITRATE, resample_48k=True))
+        else:
+            args.append("-an")
+        args.extend([
+            *h265_video_bitrate_args(bitrate_k=video_k, preset=preset.encoder_preset),
+            "-movflags", "+faststart",
+            str(out),
+        ])
+        run_ffmpeg(args)
+
+
 def compress_video(path: Path, preset: VideoCompressPreset) -> Path:
     out = conversion_output(path, target_ext=".mp4", suffix_if_same=preset.suffix)
+    if preset.max_size_mb is not None:
+        _compress_video_target_size(path, preset, out)
+        return out
+
     args = [
         "-i", str(path),
         "-vf", video_scale_filter(preset.max_width, preset.max_height),
