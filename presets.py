@@ -11,12 +11,14 @@ from ffmpeg_util import (
     aac_encode_args,
     attach_cover_art,
     conversion_output,
+    cover_art_extension,
     cue_track_metadata_args,
     extract_cover_art,
     fps_sync_args,
     h265_video_args,
     h265_video_bitrate_args,
     has_audio_stream,
+    has_cover_art,
     output_path,
     probe_duration,
     run_ffmpeg,
@@ -76,6 +78,20 @@ def to_mp3_vbr(path: Path) -> Path:
 def to_mp3_128(path: Path) -> Path:
     out = conversion_output(path, target_ext=".mp3", suffix_if_same="128k")
     run_ffmpeg(["-i", str(path), "-vn", "-c:a", "libmp3lame", "-b:a", "128k", str(out)])
+    return out
+
+
+def extract_audio_cover_art(path: Path) -> Path:
+    if not has_cover_art(path):
+        raise RuntimeError("No embedded cover art found")
+    ext = cover_art_extension(path)
+    out = output_path(path, suffix="cover", new_ext=ext)
+    run_ffmpeg([
+        "-i", str(path),
+        "-map", "0:v:0",
+        "-c", "copy",
+        str(out),
+    ])
     return out
 
 

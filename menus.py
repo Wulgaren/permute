@@ -38,10 +38,11 @@ def prompt_audio_action(files: list) -> str | None:
             "MP3 128 kbps",
             "Trim audio",
             "Split by duration",
+            "Extract cover art",
         ],
         f"Audio files ({len(files)}): {_format_file_list(files)}",
     )
-    actions = ["m4a", "mp3_vbr", "mp3_128", "trim", "split"]
+    actions = ["m4a", "mp3_vbr", "mp3_128", "trim", "split", "cover_art"]
     return actions[choice - 1] if choice else None
 
 

@@ -305,6 +305,15 @@ def probe_audio_streams(path: Path) -> list[AudioStreamInfo]:
     return streams
 
 
+_COVER_CODEC_EXTENSIONS = {
+    "mjpeg": ".jpg",
+    "png": ".png",
+    "gif": ".gif",
+    "bmp": ".bmp",
+    "webp": ".webp",
+}
+
+
 def has_cover_art(path: Path) -> bool:
     result = subprocess.run(
         [
@@ -318,6 +327,23 @@ def has_cover_art(path: Path) -> bool:
         text=True,
     )
     return "attached_pic=1" in result.stdout
+
+
+def cover_art_extension(path: Path) -> str:
+    result = subprocess.run(
+        [
+            "ffprobe", "-v", "error",
+            "-select_streams", "v:0",
+            "-show_entries", "stream=codec_name",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    codec = result.stdout.strip().lower()
+    return _COVER_CODEC_EXTENSIONS.get(codec, ".jpg")
 
 
 def extract_cover_art(path: Path) -> Path | None:

@@ -58,6 +58,18 @@ def _run_audio(action: str, files: list[Path]) -> tuple[int, int]:
                 fail += 1
         return ok, fail
 
+    if action == "cover_art":
+        for path in files:
+            try:
+                print(f"\nExtracting cover art: {path.name}")
+                out = presets.extract_audio_cover_art(path)
+                print(f"  -> {out.name}")
+                ok += 1
+            except Exception as exc:
+                print(f"  Failed: {exc}")
+                fail += 1
+        return ok, fail
+
     handlers = {
         "m4a": presets.to_m4a,
         "mp3_vbr": presets.to_mp3_vbr,
