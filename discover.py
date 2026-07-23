@@ -17,6 +17,7 @@ class MediaType(Enum):
 
 AUDIO_EXTENSIONS = {
     ".mp3", ".m4a", ".aac", ".flac", ".wav", ".ogg", ".opus", ".wma", ".alac",
+    ".aif", ".aiff",
 }
 VIDEO_EXTENSIONS = {
     ".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".wmv",
