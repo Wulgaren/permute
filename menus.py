@@ -30,7 +30,11 @@ def _format_file_list(files: list, limit: int = 3) -> str:
     return f"{shown}, +{len(names) - limit} more"
 
 
-def prompt_audio_action(files: list) -> str | None:
+def _group_heading(ext: str, files: list) -> str:
+    return f"{ext} files ({len(files)}): {_format_file_list(files)}"
+
+
+def prompt_audio_action(files: list, *, ext: str) -> str | None:
     choice = _prompt_choice(
         [
             "Best M4A (256k CBR)",
@@ -40,13 +44,13 @@ def prompt_audio_action(files: list) -> str | None:
             "Split by duration",
             "Extract cover art",
         ],
-        f"Audio files ({len(files)}): {_format_file_list(files)}",
+        _group_heading(ext, files),
     )
     actions = ["m4a", "mp3_vbr", "mp3_128", "trim", "split", "cover_art"]
     return actions[choice - 1] if choice else None
 
 
-def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
+def prompt_video_action(files: list, *, ext: str, can_combine: bool) -> str | None:
     options = [
         "Best MP4 (H.265)",
         "Compress video",
@@ -60,7 +64,7 @@ def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
 
     choice = _prompt_choice(
         options,
-        f"Video files ({len(files)}): {_format_file_list(files)}",
+        _group_heading(ext, files),
     )
     if not choice:
         return None
@@ -71,26 +75,26 @@ def prompt_video_action(files: list, *, can_combine: bool) -> str | None:
     return actions[choice - 1]
 
 
-def prompt_image_action(files: list) -> str | None:
+def prompt_image_action(files: list, *, ext: str) -> str | None:
     choice = _prompt_choice(
         [
             "Best JPG",
             "Convert to PDF",
         ],
-        f"Image files ({len(files)}): {_format_file_list(files)}",
+        _group_heading(ext, files),
     )
     actions = ["best_jpg", "to_pdf"]
     return actions[choice - 1] if choice else None
 
 
-def prompt_pdf_action(files: list, *, can_combine: bool) -> str | None:
+def prompt_pdf_action(files: list, *, ext: str, can_combine: bool) -> str | None:
     options = ["Best JPG"]
     if can_combine:
         options.append("Combine into one PDF")
 
     choice = _prompt_choice(
         options,
-        f"PDF files ({len(files)}): {_format_file_list(files)}",
+        _group_heading(ext, files),
     )
     if not choice:
         return None
@@ -124,26 +128,26 @@ def prompt_speed() -> float | None:
     return speeds[choice - 1] if choice else None
 
 
-def prompt_gif_action(files: list) -> str | None:
+def prompt_gif_action(files: list, *, ext: str) -> str | None:
     choice = _prompt_choice(
         [
             "Convert to MP4 (H.265)",
             "Optimize GIF",
             "Best JPG (extract frame)",
         ],
-        f"GIF files ({len(files)}): {_format_file_list(files)}",
+        _group_heading(ext, files),
     )
     actions = ["to_mp4", "optimize", "frame_jpg"]
     return actions[choice - 1] if choice else None
 
 
-def prompt_cue_action(files: list) -> str | None:
+def prompt_cue_action(files: list, *, ext: str) -> str | None:
     choice = _prompt_choice(
         [
             "Split (same as source)",
             "Split (best M4A, 256k CBR)",
         ],
-        f"CUE files ({len(files)}): {_format_file_list(files)}",
+        _group_heading(ext, files),
     )
     actions = ["split_source", "split_m4a"]
     return actions[choice - 1] if choice else None
@@ -199,17 +203,17 @@ def prompt_fade_out() -> bool:
     return _prompt_yes_no("Add fade out")
 
 
-def prompt_for_type(media_type: MediaType, files: list) -> str | None:
+def prompt_for_type(media_type: MediaType, files: list, *, ext: str) -> str | None:
     if media_type is MediaType.AUDIO:
-        return prompt_audio_action(files)
+        return prompt_audio_action(files, ext=ext)
     if media_type is MediaType.VIDEO:
-        return prompt_video_action(files, can_combine=len(files) >= 2)
+        return prompt_video_action(files, ext=ext, can_combine=len(files) >= 2)
     if media_type is MediaType.IMAGE:
-        return prompt_image_action(files)
+        return prompt_image_action(files, ext=ext)
     if media_type is MediaType.PDF:
-        return prompt_pdf_action(files, can_combine=len(files) >= 2)
+        return prompt_pdf_action(files, ext=ext, can_combine=len(files) >= 2)
     if media_type is MediaType.GIF:
-        return prompt_gif_action(files)
+        return prompt_gif_action(files, ext=ext)
     if media_type is MediaType.CUE:
-        return prompt_cue_action(files)
+        return prompt_cue_action(files, ext=ext)
     return None

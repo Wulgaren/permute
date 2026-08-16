@@ -5,7 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from discover import FileGroups, MediaType, collect_files
+from discover import FileGroups, MediaType, collect_files, group_by_extension
 from ffmpeg_util import check_dependencies
 from ffmpeg_util import probe_audio_streams
 from menus import (
@@ -312,39 +312,40 @@ def process_groups(groups: FileGroups) -> tuple[int, int]:
         (MediaType.CUE, groups.cue),
     ]
 
-    for media_type, files in type_groups:
-        if not files:
+    for media_type, type_files in type_groups:
+        if not type_files:
             continue
 
-        action = prompt_for_type(media_type, files)
-        if not action:
-            print("Skipped.")
-            continue
+        for ext, files in group_by_extension(type_files).items():
+            action = prompt_for_type(media_type, files, ext=ext)
+            if not action:
+                print("Skipped.")
+                continue
 
-        if media_type is MediaType.AUDIO:
-            ok, fail = _run_audio(action, files)
-        elif media_type is MediaType.VIDEO:
-            ok, fail = _run_video(action, files)
-        elif media_type is MediaType.IMAGE:
-            ok, fail = _run_image(action, files)
-        elif media_type is MediaType.PDF:
-            ok, fail = _run_pdf(action, files)
-        elif media_type is MediaType.GIF:
-            ok, fail = _run_gif(action, files)
-        elif media_type is MediaType.CUE:
-            ok, fail = _run_cue(action, files)
-        else:
-            continue
+            if media_type is MediaType.AUDIO:
+                ok, fail = _run_audio(action, files)
+            elif media_type is MediaType.VIDEO:
+                ok, fail = _run_video(action, files)
+            elif media_type is MediaType.IMAGE:
+                ok, fail = _run_image(action, files)
+            elif media_type is MediaType.PDF:
+                ok, fail = _run_pdf(action, files)
+            elif media_type is MediaType.GIF:
+                ok, fail = _run_gif(action, files)
+            elif media_type is MediaType.CUE:
+                ok, fail = _run_cue(action, files)
+            else:
+                continue
 
-        total_ok += ok
-        total_fail += fail
+            total_ok += ok
+            total_fail += fail
 
     return total_ok, total_fail
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Convert media files with ffmpeg — interactive menus per file type.",
+        description="Convert media files with ffmpeg — interactive menus per file extension.",
     )
     parser.add_argument(
         "paths",

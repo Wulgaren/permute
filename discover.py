@@ -30,6 +30,13 @@ PDF_EXTENSIONS = {".pdf"}
 GIF_EXTENSIONS = {".gif"}
 CUE_EXTENSIONS = {".cue"}
 
+EXTENSION_ALIASES = {
+    ".jpeg": ".jpg",
+    ".tiff": ".tif",
+    ".heif": ".heic",
+    ".aiff": ".aif",
+}
+
 
 @dataclass
 class FileGroups:
@@ -57,6 +64,19 @@ def classify(path: Path) -> MediaType | None:
     if ext in CUE_EXTENSIONS:
         return MediaType.CUE
     return None
+
+
+def canonical_extension(path: Path) -> str:
+    ext = path.suffix.lower()
+    return EXTENSION_ALIASES.get(ext, ext)
+
+
+def group_by_extension(files: list[Path]) -> dict[str, list[Path]]:
+    groups: dict[str, list[Path]] = {}
+    for path in files:
+        ext = canonical_extension(path)
+        groups.setdefault(ext, []).append(path)
+    return {ext: groups[ext] for ext in sorted(groups)}
 
 
 def collect_files(paths: list[Path]) -> FileGroups:
