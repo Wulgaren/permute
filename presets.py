@@ -354,9 +354,107 @@ def optimize_gif(path: Path) -> Path:
     return out
 
 
-def trim_audio(
-    path: Path, start: str, end: str, *, fade_in: bool, fade_out: bool,
+def _parse_timestamp(value: str) -> float:
+    parts = value.split(":")
+    try:
+        if len(parts) == 3:
+            hours, minutes, seconds = parts
+            return int(hours) * 3600 + int(minutes) * 60 + float(seconds)
+        if len(parts) == 2:
+            minutes, seconds = parts
+            return int(minutes) * 60 + float(seconds)
+        return float(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid timestamp: {value}") from exc
+
+
+def _trim_range_args(start: str | None, end: str | None) -> list[str]:
+    args: list[str] = []
+    if start is not None:
+        args.extend(["-ss", start])
+    if end is not None:
+        args.extend(["-to", end])
+    return args
+
+
+def _trim_segment_duration(
+    path: Path, start: str | None, end: str | None,
+) -> float:
+    start_s = _parse_timestamp(start) if start is not None else 0.0
+    end_s = _parse_timestamp(end) if end is not None else probe_duration(path)
+    duration = end_s - start_s
+    if duration <= 0:
+        raise RuntimeError(
+            f"End time must be after start time "
+            f"({start or 'beginning'} -> {end or 'end'})"
+        )
+    return duration
+
+
+def trim_video(
+    path: Path,
+    start: str | None,
+    end: str | None,
+    *,
+    fade_in_audio: bool,
+    fade_out_audio: bool,
+    fade_in_picture: bool,
+    fade_out_picture: bool,
 ) -> Path:
+    range_args = _trim_range_args(start, end)
+    any_fade = fade_in_audio or fade_out_audio or fade_in_picture or fade_out_picture
+    if not any_fade:
+        out = output_path(path, suffix="trim")
+        run_ffmpeg([
+            "-i", str(path),
+            *range_args,
+            "-c", "copy",
+            str(out),
+        ])
+        return out
+
+    duration = _trim_segment_duration(path, start, end)
+
+    has_audio = has_audio_stream(path)
+    if (fade_in_audio or fade_out_audio) and not has_audio:
+        raise RuntimeError("No audio stream for audio fade")
+
+    fade_out_start = max(duration - 2, 0)
+    vf_parts: list[str] = []
+    if fade_in_picture:
+        vf_parts.append("fade=t=in:st=0:d=2")
+    if fade_out_picture:
+        vf_parts.append(f"fade=t=out:st={fade_out_start}:d=2")
+
+    af_parts: list[str] = []
+    if fade_in_audio:
+        af_parts.append("afade=t=in:st=0:d=2")
+    if fade_out_audio:
+        af_parts.append(f"afade=t=out:st={fade_out_start}:d=2")
+
+    out = conversion_output(path, target_ext=".mp4", suffix_if_same="fade")
+    args = ["-i", str(path), *range_args]
+    if vf_parts:
+        args.extend(["-vf", ",".join(vf_parts)])
+    if has_audio:
+        if af_parts:
+            args.extend(["-af", ",".join(af_parts)])
+        args.extend(aac_encode_args(bitrate=VIDEO_AAC_BITRATE, resample_48k=True))
+    else:
+        args.append("-an")
+    args.extend([
+        *h265_video_args(),
+        "-movflags", "+faststart",
+        str(out),
+    ])
+    run_ffmpeg(args)
+    return out
+
+
+def trim_audio(
+    path: Path, start: str | None, end: str | None, *, fade_in: bool, fade_out: bool,
+) -> Path:
+    range_args = _trim_range_args(start, end)
     if fade_in or fade_out:
         out = conversion_output(path, target_ext=".m4a", suffix_if_same="fade")
         parts: list[str] = []
@@ -370,7 +468,7 @@ def trim_audio(
         try:
             run_ffmpeg([
                 "-i", str(path),
-                "-ss", start, "-to", end,
+                *range_args,
                 "-map", "0:a",
                 "-map_metadata", "0",
                 "-af", fade_filter,
@@ -387,7 +485,7 @@ def trim_audio(
         out = output_path(path, suffix="trim")
         run_ffmpeg([
             "-i", str(path),
-            "-ss", start, "-to", end,
+            *range_args,
             *stream_copy_with_cover_args(),
             str(out),
         ])

@@ -31,8 +31,8 @@ def _run_audio(action: str, files: list[Path]) -> tuple[int, int]:
     ok = fail = 0
 
     if action == "trim":
-        start = prompt_time("Start time (HH:MM:SS)")
-        end = prompt_time("End time (HH:MM:SS)")
+        start = prompt_time("Start time (HH:MM:SS) [beginning]", empty_ok=True)
+        end = prompt_time("End time (HH:MM:SS) [end]", empty_ok=True)
         fade_in = prompt_fade_in()
         fade_out = prompt_fade_out()
         for path in files:
@@ -109,6 +109,32 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
             try:
                 print(f"\nSpeeding up ({speed}x): {path.name}")
                 out = presets.speed_up_video(path, speed)
+                print(f"  -> {out.name}")
+                ok += 1
+            except Exception as exc:
+                print(f"  Failed: {exc}")
+                fail += 1
+        return ok, fail
+
+    if action == "trim":
+        start = prompt_time("Start time (HH:MM:SS) [beginning]", empty_ok=True)
+        end = prompt_time("End time (HH:MM:SS) [end]", empty_ok=True)
+        fade_in_audio = prompt_fade_in("Add audio fade in")
+        fade_out_audio = prompt_fade_out("Add audio fade out")
+        fade_in_picture = prompt_fade_in("Add picture fade in")
+        fade_out_picture = prompt_fade_out("Add picture fade out")
+        for path in files:
+            try:
+                print(f"\nTrimming: {path.name}")
+                out = presets.trim_video(
+                    path,
+                    start,
+                    end,
+                    fade_in_audio=fade_in_audio,
+                    fade_out_audio=fade_out_audio,
+                    fade_in_picture=fade_in_picture,
+                    fade_out_picture=fade_out_picture,
+                )
                 print(f"  -> {out.name}")
                 ok += 1
             except Exception as exc:

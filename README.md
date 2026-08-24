@@ -30,7 +30,7 @@ Outputs land next to the source files. Unsupported extensions are skipped.
 
 **Audio.** M4A 256k, MP3 VBR or 128k, trim (optional fades), split by duration, extract cover art.
 
-**Video.** H.265 MP4, compress presets (10 MB / 1080p / 720p / 480p), extract audio, grab a frame as JPG, speed up, split by duration, combine multiple videos.
+**Video.** H.265 MP4, compress presets (10 MB / 1080p / 720p / 480p), extract audio, grab a frame as JPG, speed up, trim (optional audio/picture fades), split by duration, combine multiple videos.
 
 **Image.** Best JPG, or several images into one PDF.
 

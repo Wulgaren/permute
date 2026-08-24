@@ -57,6 +57,7 @@ def prompt_video_action(files: list, *, ext: str, can_combine: bool) -> str | No
         "Extract audio (256k M4A)",
         "Best JPG (extract frame)",
         "Speed up",
+        "Trim video",
         "Split by duration",
     ]
     if can_combine:
@@ -69,7 +70,15 @@ def prompt_video_action(files: list, *, ext: str, can_combine: bool) -> str | No
     if not choice:
         return None
 
-    actions = ["h265_mp4", "compress", "extract_audio", "frame_jpg", "speed_up", "split"]
+    actions = [
+        "h265_mp4",
+        "compress",
+        "extract_audio",
+        "frame_jpg",
+        "speed_up",
+        "trim",
+        "split",
+    ]
     if can_combine:
         actions.append("combine")
     return actions[choice - 1]
@@ -177,11 +186,13 @@ def prompt_frame_number() -> int:
         print("Enter a positive integer.")
 
 
-def prompt_time(label: str) -> str:
+def prompt_time(label: str, *, empty_ok: bool = False) -> str | None:
     while True:
         raw = input(f"{label}: ").strip()
         if raw:
             return raw
+        if empty_ok:
+            return None
         print("Required.")
 
 
@@ -195,12 +206,12 @@ def _prompt_yes_no(prompt: str) -> bool:
         print("Enter y or n.")
 
 
-def prompt_fade_in() -> bool:
-    return _prompt_yes_no("Add fade in")
+def prompt_fade_in(label: str = "Add fade in") -> bool:
+    return _prompt_yes_no(label)
 
 
-def prompt_fade_out() -> bool:
-    return _prompt_yes_no("Add fade out")
+def prompt_fade_out(label: str = "Add fade out") -> bool:
+    return _prompt_yes_no(label)
 
 
 def prompt_for_type(media_type: MediaType, files: list, *, ext: str) -> str | None:
