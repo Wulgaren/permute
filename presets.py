@@ -228,6 +228,21 @@ def extract_audio(path: Path, *, audio_stream: int | None = None) -> Path:
     return to_m4a(path, audio_stream=audio_stream)
 
 
+def remove_audio(path: Path) -> Path | None:
+    """Stream-copy video (and other non-audio streams); drop audio. None if already silent."""
+    if not has_audio_stream(path):
+        return None
+    out = output_path(path, suffix="noaudio")
+    run_ffmpeg([
+        "-i", str(path),
+        "-map", "0",
+        "-map", "-0:a",
+        "-c", "copy",
+        str(out),
+    ])
+    return out
+
+
 def to_best_jpg(path: Path) -> Path:
     out = conversion_output(path, target_ext=".jpg", suffix_if_same="best")
     run_ffmpeg([

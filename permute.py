@@ -211,6 +211,20 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
                 fail += 1
         return ok, fail
 
+    if action == "remove_audio":
+        for path in files:
+            try:
+                print(f"\nRemoving audio: {path.name}")
+                out = presets.remove_audio(path)
+                if out is None:
+                    continue
+                print(f"  -> {out.name}")
+                ok += 1
+            except Exception as exc:
+                print(f"  Failed: {exc}")
+                fail += 1
+        return ok, fail
+
     handlers = {
         "h265_mp4": presets.to_h265_mp4,
     }
