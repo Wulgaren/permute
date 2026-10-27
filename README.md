@@ -32,7 +32,7 @@ Outputs land next to the source files. Unsupported extensions are skipped.
 
 **Video.** H.265 MP4, compress presets (10 MB / 1080p / 720p / 480p), extract audio, remove audio, grab a frame as JPG, speed up, trim (optional audio/picture fades), split by duration, combine multiple videos.
 
-**Image.** Best JPG, or several images into one PDF.
+**Image.** Best JPG, WebP to H.265 MP4, or several images into one PDF.
 
 **PDF.** Rasterize to JPG pages, or combine PDFs.
 

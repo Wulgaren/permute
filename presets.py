@@ -345,7 +345,8 @@ def video_frame_jpg(path: Path, *, frame_index: int) -> Path:
     return out
 
 
-def gif_to_mp4(path: Path) -> Path:
+def animation_to_mp4(path: Path) -> Path:
+    """Convert GIF or animated WebP to H.265 MP4."""
     out = output_path(path, new_ext=".mp4")
     run_ffmpeg([
         "-i", str(path),

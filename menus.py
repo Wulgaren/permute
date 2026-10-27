@@ -87,14 +87,13 @@ def prompt_video_action(files: list, *, ext: str, can_combine: bool) -> str | No
 
 
 def prompt_image_action(files: list, *, ext: str) -> str | None:
-    choice = _prompt_choice(
-        [
-            "Best JPG",
-            "Convert to PDF",
-        ],
-        _group_heading(ext, files),
-    )
+    options = ["Best JPG", "Convert to PDF"]
     actions = ["best_jpg", "to_pdf"]
+    if ext == ".webp":
+        options.append("Convert to MP4 (H.265)")
+        actions.append("to_mp4")
+
+    choice = _prompt_choice(options, _group_heading(ext, files))
     return actions[choice - 1] if choice else None
 
 

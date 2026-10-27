@@ -254,10 +254,11 @@ def _run_image(action: str, files: list[Path]) -> tuple[int, int]:
             print(f"  Failed: {exc}")
             return 0, 1
 
+    handler = presets.animation_to_mp4 if action == "to_mp4" else presets.to_best_jpg
     for path in files:
         try:
             print(f"\nConverting: {path.name}")
-            out = presets.to_best_jpg(path)
+            out = handler(path)
             print(f"  -> {out.name}")
             ok += 1
         except Exception as exc:
@@ -310,7 +311,7 @@ def _run_gif(action: str, files: list[Path]) -> tuple[int, int]:
         return ok, fail
 
     handlers = {
-        "to_mp4": presets.gif_to_mp4,
+        "to_mp4": presets.animation_to_mp4,
         "optimize": presets.optimize_gif,
     }
     handler = handlers[action]
