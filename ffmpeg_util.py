@@ -24,6 +24,41 @@ _ENCODER_CACHE: set[str] | None = None
 _AAC_NMR_CACHE: bool | None = None
 _FPS_MODE_OPTION: str | None = None
 
+_TASKPOLICY = "/usr/sbin/taskpolicy"
+_QOS_MODES = {"background", "utility", "default"}
+
+
+def _thread_count() -> int:
+    """Encoder threads: PERMUTE_THREADS, else half the logical cores."""
+    raw = os.environ.get("PERMUTE_THREADS")
+    if raw is None:
+        return max(1, (os.cpu_count() or 4) // 2)
+    try:
+        count = int(raw)
+    except ValueError:
+        raise RuntimeError(f"PERMUTE_THREADS must be an integer (got {raw!r})") from None
+    if count < 1:
+        raise RuntimeError(f"PERMUTE_THREADS must be at least 1 (got {count})")
+    return count
+
+
+def _x265_pool_args() -> list[str]:
+    """Cap libx265 worker threads; ffmpeg's -threads only sets frame threads."""
+    return ["-x265-params", f"pools={_thread_count()}"]
+
+
+def _qos_prefix() -> list[str]:
+    """Wrap ffmpeg in a lower macOS scheduling class; PERMUTE_QOS=off disables it."""
+    mode = os.environ.get("PERMUTE_QOS", "background").strip().lower()
+    if mode == "off":
+        return []
+    if mode not in _QOS_MODES:
+        allowed = ", ".join(sorted([*_QOS_MODES, "off"]))
+        raise RuntimeError(f"PERMUTE_QOS must be one of {allowed} (got {mode!r})")
+    if not os.path.exists(_TASKPOLICY):
+        return []
+    return [_TASKPOLICY, "-c", mode]
+
 
 def _aac_has_nmr() -> bool:
     """True when ffmpeg ships Lynne's native AAC encoder (aac_coder nmr)."""
@@ -120,7 +155,10 @@ def h265_video_bitrate_args(
     """Return ffmpeg video-encoding args for a target bitrate, preferring HEVC."""
     encoders = _available_encoders()
     if "libx265" in encoders:
-        args = ["-c:v", "libx265", "-b:v", f"{bitrate_k}k"]
+        args = [
+            "-c:v", "libx265", "-b:v", f"{bitrate_k}k",
+            *_x265_pool_args(),
+        ]
         if preset:
             args.extend(["-preset", preset])
         if pass_num is not None:
@@ -132,7 +170,10 @@ def h265_video_bitrate_args(
     if "hevc_videotoolbox" in encoders:
         return ["-c:v", "hevc_videotoolbox", "-b:v", f"{bitrate_k}k", "-tag:v", "hvc1"]
     if "libx264" in encoders:
-        args = ["-c:v", "libx264", "-b:v", f"{bitrate_k}k"]
+        args = [
+            "-c:v", "libx264", "-b:v", f"{bitrate_k}k",
+            "-threads", str(_thread_count()),
+        ]
         if preset:
             args.extend(["-preset", preset])
         if pass_num is not None:
@@ -158,7 +199,7 @@ def h265_video_args(
     if pix_fmt and "libx265" not in encoders:
         raise RuntimeError("10-bit HEVC requires ffmpeg with libx265")
     if "libx265" in encoders:
-        args = ["-c:v", "libx265", "-crf", crf]
+        args = ["-c:v", "libx265", "-crf", crf, *_x265_pool_args()]
         if preset:
             args.extend(["-preset", preset])
         if pix_fmt:
@@ -169,7 +210,7 @@ def h265_video_args(
         q = str(max(1, min(100, 100 - int(float(crf)))))
         return ["-c:v", "hevc_videotoolbox", "-q:v", q, "-tag:v", "hvc1"]
     if "libx264" in encoders:
-        args = ["-c:v", "libx264", "-crf", crf]
+        args = ["-c:v", "libx264", "-crf", crf, "-threads", str(_thread_count())]
         if preset:
             args.extend(["-preset", preset])
         return args
@@ -180,7 +221,7 @@ def h265_video_args(
 
 
 def run_ffmpeg(args: list[str], *, quiet: bool = False) -> None:
-    cmd = ["ffmpeg", "-hide_banner", "-y", *args]
+    cmd = [*_qos_prefix(), "ffmpeg", "-hide_banner", "-y", *args]
     if not quiet:
         print(f"  $ {' '.join(cmd)}")
     result = subprocess.run(

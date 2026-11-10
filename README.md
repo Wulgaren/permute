@@ -26,6 +26,13 @@ python permute.py clip.mov song.flac cover.png
 
 Outputs land next to the source files. Unsupported extensions are skipped.
 
+## Cooler encodes
+
+Video encodes use half your CPU cores by default, and ffmpeg runs at macOS background QoS so it prefers efficiency cores. Encoding takes longer, but CRF, preset, and output quality are unchanged.
+
+- `PERMUTE_THREADS=4` caps encoder threads.
+- `PERMUTE_QOS=utility` keeps performance cores available. Other options are `background` (default), `default`, and `off`.
+
 ## What it can do
 
 **Audio.** M4A 256k, MP3 VBR or 128k, trim (optional fades), split by duration, extract cover art.
