@@ -49,7 +49,7 @@ class VideoCompressPreset:
 # HandBrake-inspired presets: H.265, downscale-to-fit, AAC 160k audio.
 VIDEO_COMPRESS_PRESETS: list[VideoCompressPreset] = [
     VideoCompressPreset(
-        "Memories", 3840, 2160, "23", "medium", "memories", pix_fmt="yuv420p10le"
+        "Best", 3840, 2160, "23", "medium", "best", pix_fmt="yuv420p10le"
     ),
     VideoCompressPreset("Max 10 MB", 1280, 720, "24", "fast", "10mb", max_size_mb=10),
     VideoCompressPreset("Fast 1080p", 1920, 1080, "24", "fast", "1080p"),
