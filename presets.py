@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import glob
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,10 +43,14 @@ class VideoCompressPreset:
     encoder_preset: str | None
     suffix: str
     max_size_mb: float | None = None
+    pix_fmt: str | None = None
 
 
 # HandBrake-inspired presets: H.265, downscale-to-fit, AAC 160k audio.
 VIDEO_COMPRESS_PRESETS: list[VideoCompressPreset] = [
+    VideoCompressPreset(
+        "Memories", 3840, 2160, "23", "medium", "memories", pix_fmt="yuv420p10le"
+    ),
     VideoCompressPreset("Max 10 MB", 1280, 720, "24", "fast", "10mb", max_size_mb=10),
     VideoCompressPreset("Fast 1080p", 1920, 1080, "24", "fast", "1080p"),
     VideoCompressPreset("Fast 720p", 1280, 720, "24", "fast", "720p"),
@@ -216,7 +221,9 @@ def compress_video(path: Path, preset: VideoCompressPreset) -> Path:
     else:
         args.append("-an")
     args.extend([
-        *h265_video_args(crf=preset.crf, preset=preset.encoder_preset),
+        *h265_video_args(
+            crf=preset.crf, preset=preset.encoder_preset, pix_fmt=preset.pix_fmt
+        ),
         "-movflags", "+faststart",
         str(out),
     ])
@@ -240,6 +247,25 @@ def remove_audio(path: Path) -> Path | None:
         "-c", "copy",
         str(out),
     ])
+    return out
+
+
+def to_heic(path: Path) -> Path:
+    """Convert an image to HEIC at quality 65 with macOS sips."""
+    out = conversion_output(path, target_ext=".heic", suffix_if_same="q65")
+    try:
+        result = subprocess.run(
+            [
+                "sips", "-s", "format", "heic", "-s", "formatOptions", "65",
+                str(path), "--out", str(out),
+            ],
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("sips not found (HEIC conversion requires macOS)") from exc
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "sips failed")
     return out
 
 

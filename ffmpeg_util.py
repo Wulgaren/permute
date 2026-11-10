@@ -150,13 +150,19 @@ def supports_two_pass_video() -> bool:
     return "libx265" in encoders or "libx264" in encoders
 
 
-def h265_video_args(*, crf: str = "22", preset: str | None = "slow") -> list[str]:
+def h265_video_args(
+    *, crf: str = "22", preset: str | None = "slow", pix_fmt: str | None = None
+) -> list[str]:
     """Return ffmpeg video-encoding args, preferring HEVC with fallbacks."""
     encoders = _available_encoders()
+    if pix_fmt and "libx265" not in encoders:
+        raise RuntimeError("10-bit HEVC requires ffmpeg with libx265")
     if "libx265" in encoders:
         args = ["-c:v", "libx265", "-crf", crf]
         if preset:
             args.extend(["-preset", preset])
+        if pix_fmt:
+            args.extend(["-pix_fmt", pix_fmt])
         args.extend(["-tag:v", "hvc1"])
         return args
     if "hevc_videotoolbox" in encoders:

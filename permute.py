@@ -254,7 +254,12 @@ def _run_image(action: str, files: list[Path]) -> tuple[int, int]:
             print(f"  Failed: {exc}")
             return 0, 1
 
-    handler = presets.animation_to_mp4 if action == "to_mp4" else presets.to_best_jpg
+    handlers = {
+        "best_jpg": presets.to_best_jpg,
+        "to_heic": presets.to_heic,
+        "to_mp4": presets.animation_to_mp4,
+    }
+    handler = handlers[action]
     for path in files:
         try:
             print(f"\nConverting: {path.name}")
