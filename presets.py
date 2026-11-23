@@ -21,6 +21,7 @@ from ffmpeg_util import (
     has_audio_stream,
     has_cover_art,
     output_path,
+    probe_audio_streams,
     probe_duration,
     run_ffmpeg,
     split_output_pattern,
@@ -32,6 +33,23 @@ from ffmpeg_util import (
 
 BEST_M4A_BITRATE = "256k"
 VIDEO_AAC_BITRATE = "160k"
+
+# Containers that hold the source audio codec unchanged.
+STREAM_COPY_EXTENSIONS = {
+    "aac": ".m4a",
+    "alac": ".m4a",
+    "mp3": ".mp3",
+    "opus": ".opus",
+    "vorbis": ".ogg",
+    "flac": ".flac",
+}
+
+
+def stream_copy_extension(codec: str) -> str:
+    """Output extension for a stream-copied codec; Matroska audio when unknown."""
+    if codec.startswith("pcm_"):
+        return ".wav"
+    return STREAM_COPY_EXTENSIONS.get(codec, ".mka")
 
 
 @dataclass(frozen=True)
@@ -69,6 +87,30 @@ def to_m4a(path: Path, *, audio_stream: int | None = None) -> Path:
         "-i", str(path),
         *map_args,
         *aac_encode_args(bitrate=BEST_M4A_BITRATE, resample_48k=True),
+        str(out),
+    ])
+    return out
+
+
+def extract_audio_stream_copy(path: Path, *, audio_stream: int | None = None) -> Path:
+    """Stream-copy one audio track out of a video; no re-encode, no quality loss."""
+    streams = probe_audio_streams(path)
+    if not streams:
+        raise RuntimeError("No audio stream found")
+    index = audio_stream or 0
+    if index >= len(streams):
+        raise RuntimeError(
+            f"Track {index + 1} not found ({len(streams)} audio track(s) available)"
+        )
+    ext = stream_copy_extension(streams[index].codec)
+    if index > 0:
+        out = output_path(path, suffix=f"track{index + 1}", new_ext=ext)
+    else:
+        out = conversion_output(path, target_ext=ext, suffix_if_same="copy")
+    run_ffmpeg([
+        "-i", str(path),
+        "-map", f"0:a:{index}",
+        "-c:a", "copy",
         str(out),
     ])
     return out
