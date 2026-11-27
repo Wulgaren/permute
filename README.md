@@ -7,6 +7,7 @@ Interactive CLI that batch-converts media with ffmpeg. Point it at files or fold
 - Python 3
 - [ffmpeg](https://ffmpeg.org/) on `PATH` (`brew install ffmpeg`)
 - Python packages in `requirements.txt` (Pillow, pypdf, pymupdf) for image/PDF work
+- macOS 26+ and the Swift toolchain (`xcode-select --install`) for SRT subtitles
 
 ## Setup
 
@@ -37,7 +38,7 @@ Video encodes use half your CPU cores by default, and ffmpeg runs at macOS backg
 
 **Audio.** M4A 256k, MP3 VBR or 128k, trim (optional fades), split by duration, extract cover art.
 
-**Video.** H.265 MP4, compress presets (Best 10-bit / 10 MB / 1080p / 720p / 480p), extract audio (256k AAC or same-quality copy), remove audio, grab a frame as JPG, speed up, trim (optional audio/picture fades), split by duration, combine multiple videos.
+**Video.** H.265 MP4, compress presets (Best 10-bit / 10 MB / 1080p / 720p / 480p), extract audio (same-quality copy), SRT subtitles (Apple on-device speech recognition, English), remove audio, grab a frame as JPG, speed up, trim (optional audio/picture fades), split by duration, combine multiple videos.
 
 **Image.** Best JPG, HEIC (quality 65), WebP to H.265 MP4, or several images into one PDF.
 

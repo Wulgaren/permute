@@ -54,8 +54,8 @@ def prompt_video_action(files: list, *, ext: str, can_combine: bool) -> str | No
     options = [
         "Best MP4 (H.265)",
         "Compress video",
-        "Extract audio (256k M4A)",
         "Extract audio (same quality)",
+        "Generate subtitles (SRT)",
         "Remove audio",
         "Best JPG (extract frame)",
         "Speed up",
@@ -75,8 +75,8 @@ def prompt_video_action(files: list, *, ext: str, can_combine: bool) -> str | No
     actions = [
         "h265_mp4",
         "compress",
-        "extract_audio",
         "extract_audio_copy",
+        "srt",
         "remove_audio",
         "frame_jpg",
         "speed_up",

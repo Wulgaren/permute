@@ -184,7 +184,7 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
                 fail += 1
         return ok, fail
 
-    if action in ("extract_audio", "extract_audio_copy"):
+    if action == "extract_audio_copy":
         audio_stream: int | None = None
         streams = probe_audio_streams(files[0])
         if len(streams) > 1:
@@ -193,10 +193,6 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
                 return 0, 0
             audio_stream = picked
 
-        same_quality = action == "extract_audio_copy"
-        extract = (
-            presets.extract_audio_stream_copy if same_quality else presets.extract_audio
-        )
         for path in files:
             try:
                 if audio_stream is not None:
@@ -206,9 +202,8 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
                             f"Track {audio_stream + 1} not found "
                             f"({len(path_streams)} audio track(s) available)"
                         )
-                label = "Extracting" if same_quality else "Converting"
-                print(f"\n{label}: {path.name}")
-                out = extract(path, audio_stream=audio_stream)
+                print(f"\nExtracting: {path.name}")
+                out = presets.extract_audio_stream_copy(path, audio_stream=audio_stream)
                 print(f"  -> {out.name}")
                 ok += 1
             except Exception as exc:
@@ -232,6 +227,7 @@ def _run_video(action: str, files: list[Path]) -> tuple[int, int]:
 
     handlers = {
         "h265_mp4": presets.to_h265_mp4,
+        "srt": presets.to_srt,
     }
     handler = handlers[action]
     for path in files:

@@ -33,6 +33,7 @@ from ffmpeg_util import (
 
 BEST_M4A_BITRATE = "256k"
 VIDEO_AAC_BITRATE = "160k"
+TRANSCRIBE_SCRIPT = Path(__file__).with_name("transcribe.swift")
 
 # Containers that hold the source audio codec unchanged.
 STREAM_COPY_EXTENSIONS = {
@@ -76,16 +77,12 @@ VIDEO_COMPRESS_PRESETS: list[VideoCompressPreset] = [
 ]
 
 
-def to_m4a(path: Path, *, audio_stream: int | None = None) -> Path:
-    if audio_stream is not None and audio_stream > 0:
-        out = output_path(path, suffix=f"track{audio_stream + 1}", new_ext=".m4a")
-    else:
-        out = conversion_output(path, target_ext=".m4a", suffix_if_same="256k")
+def to_m4a(path: Path) -> Path:
+    out = conversion_output(path, target_ext=".m4a", suffix_if_same="256k")
 
-    map_args = ["-map", f"0:a:{audio_stream}"] if audio_stream is not None else ["-vn"]
     run_ffmpeg([
         "-i", str(path),
-        *map_args,
+        "-vn",
         *aac_encode_args(bitrate=BEST_M4A_BITRATE, resample_48k=True),
         str(out),
     ])
@@ -113,6 +110,36 @@ def extract_audio_stream_copy(path: Path, *, audio_stream: int | None = None) ->
         "-c:a", "copy",
         str(out),
     ])
+    return out
+
+
+def to_srt(path: Path) -> Path:
+    """Transcribe the first audio track to an SRT sidecar with Apple's on-device recogniser."""
+    if not has_audio_stream(path):
+        raise RuntimeError("No audio stream found")
+    out = output_path(path, new_ext=".srt")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        wav = Path(tmpdir) / "audio.wav"
+        run_ffmpeg([
+            "-i", str(path),
+            "-map", "0:a:0",
+            # Pad leading silence so cue times match the video when audio starts late.
+            "-af", "aresample=async=1:first_pts=0",
+            "-ac", "1",
+            "-ar", "16000",
+            "-c:a", "pcm_s16le",
+            str(wav),
+        ], quiet=True)
+        try:
+            result = subprocess.run(
+                ["swift", str(TRANSCRIBE_SCRIPT), str(wav), str(out)],
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError("swift not found (subtitles require the Swift toolchain)") from exc
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or "swift transcribe failed")
     return out
 
 
@@ -271,10 +298,6 @@ def compress_video(path: Path, preset: VideoCompressPreset) -> Path:
     ])
     run_ffmpeg(args)
     return out
-
-
-def extract_audio(path: Path, *, audio_stream: int | None = None) -> Path:
-    return to_m4a(path, audio_stream=audio_stream)
 
 
 def remove_audio(path: Path) -> Path | None:
